@@ -1,0 +1,308 @@
+Ek-1
+# Gerekli Kütüphane ve Fonksiyonlar import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+import seaborn as sns
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential
+from sklearn.preprocessing import scale, StandardScaler
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.metrics import confusion_matrix, accuracy_score, mean_squared_error, r2_score, median_absolute_error, classification_report
+from sklearn.metrics import mean_absolute_percentage_error
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) warnings.filterwarnings("ignore", category=FutureWarning)
+
+
+# Veri Seti Hikayesi ve Problem: Kaza Olma Olasılığı Tahmini
+df = pd.read_csv("Mbusdata1.csv")
+df.head(10)
+df["Target"].value_counts()
+df.describe().T
+y = df["Target"]
+X = df.drop(["Target"], axis = 1)
+X.head()
+#correlation matrix
+print("Korelayon Matrisi:","\n")
+corr_matrix = df.corr()
+plt.figure(figsize=(10,10))
+sns.heatmap(corr_matrix, annot=True)
+plt.show()
+# LOJİSTİK REGRESYON
+# Model & Tahmin
+loj_model = LogisticRegression(solver = "liblinear").fit(X,y) loj_model.intercept_
+loj_model.coef_
+loj_model.predict(X)[0:10]
+
+y[0:10]
+y_pred = loj_model.predict(X)
+accuracy_score(y, y_pred)
+print(classification_report(y, y_pred))
+loj_model.predict_proba(X)[0:10]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42) loj_model = LogisticRegression(solver = "liblinear").fit(X_train,y_train)
+y_pred = loj_model.predict(X_test)
+print(accuracy_score(y_test, y_pred))
+cross_val_score(loj_model, X_test, y_test, cv = 10).mean()
+# K-EN YAKIN KOMŞU (KNN)
+y = df["Target"]
+X = df.drop(['Target'], axis=1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42) #Feature Scaling
+sc = StandardScaler()
+sc.fit(X_train)
+X_train = sc.transform(X_train)
+sc.fit(X_test)
+X_test = sc.transform(X_test)
+# Model & Tahmin
+knn_model = KNeighborsClassifier().fit(X_train, y_train)
+y_pred = knn_model.predict(X_test)
+accuracy_score(y_test, y_pred)
+print(classification_report(y_test, y_pred))
+# Model Tuning
+knn = KNeighborsClassifier()
+np.arange(1,10)
+knn_params = {"n_neighbors": np.arange(1,10)}
+knn_cv_model = GridSearchCV(knn, knn_params, cv = 5).fit(X_train, y_train) knn_cv_model.best_score_
+knn_cv_model.best_params_
+#final model
+knn_tuned = KNeighborsClassifier(n_neighbors = 9).fit(X_train, y_train)
+y_pred = knn_tuned.predict(X_test)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",xticklabels=['0','1'], yticklabels=['0','1'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using K-Nearest Neighbor') accuracy_score(y_test, y_pred)
+knn_tuned.score(X_test, y_test)
+# DESTEK VEKTÖR MAKİNELERİ (SVM)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42) #Feature Scaling
+sc = StandardScaler()
+sc.fit(X_train)
+X_train = sc.transform(X_train)
+sc.fit(X_test)
+X_test = sc.transform(X_test)
+
+
+# Model & Tahmin
+svm_model = SVC(kernel = "linear").fit(X_train, y_train) svm_model
+y_pred = svm_model.predict(X_test) accuracy_score(y_test, y_pred)
+# Model Tuning
+svm = SVC()
+svm_params = {"C": np.arange(1,5), "kernel": ["linear","rbf","poly","sigmoid"]} svm_cv_model = GridSearchCV(svm, svm_params, cv = 10, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+svm_cv_model.best_score_
+svm_cv_model.best_params_
+#final model
+svm_tuned = SVC(C = 1, kernel = "rbf").fit(X_train, y_train)
+y_pred = svm_tuned.predict(X_test)
+accuracy_score(y_test, y_pred)
+# YAPAY SİNİR AĞLARI (Çok Katmanlı Algılayıcılar)
+#Splitting the dataset into the Training set and Test set
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=41) #Feature Scaling
+sc = StandardScaler()
+sc.fit(X_train)
+X_train = sc.transform(X_train)
+sc.fit(X_test)
+X_test = sc.transform(X_test)
+mlpc_params = {"activation":["logistic", "relu"],
+"solver":["lbfgs", "adam", "sgd"], "alpha":[1, 0.1, 0.02, 0.005, 0.0001],
+"hidden_layer_sizes": [(10), (100), (3,5), (10,10), (100,100,100), (100,50,150)], "learning_rate":["constant", "adaptive"],
+"momentum":[0.1, 0.3, 0.5, 0.7, 0.9] }
+mlpc = MLPClassifier(early_stopping=True, validation_fraction=0.1)
+mlpc_cv_model = GridSearchCV(mlpc, mlpc_params, scoring = 'accuracy', cv = 5, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+mlpc_cv_model.fit(X_train, y_train)
+def display(results):
+print(f'Best parameters are: {results.best_params_}') print("\n")
+mean_score = results.cv_results_['mean_test_score'] params = results.cv_results_['params']
+for mean,params in zip(mean_score,params): print(f'{round(mean,3)} for the {params}')
+display(mlpc_cv_model)
+# Model Tuning
+mlpc_cv_model.best_params_
+mlpc_tuned = MLPClassifier(solver = "adam",activation='relu', alpha = 0.0001, hidden_layer_sizes = (100), momentum = 0.9, learning_rate = 'constant').fit(X_train, y_train) y_pred = mlpc_tuned.predict(X_test)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",
+xticklabels=['0','1'], yticklabels=['0','1'])
+
+
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using Artifical Neural Networks') accuracy_score(y_test, y_pred)
+print(f"***En iyi parametrelerle auc:{accuracy_score(y_test, y_pred)}")
+print(f"***En iyi parametrelerle r2score:{r2_score(y_test, y_pred)}")
+print(f"***En iyi parametrelerle MSE:{mean_squared_error(y_test, y_pred)}") print(f"***En iyi parametrelerle MAPE:{mean_absolute_percentage_error(y_test, y_pred)}")
+# CART (Classification and Regression Tree)
+#Splitting the dataset into the Training set and Test set
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=41) # Model & Tahmin
+cart_model = DecisionTreeClassifier().fit(X_train, y_train)
+cart_model
+y_pred = cart_model.predict(X_test)
+accuracy_score(y_test, y_pred)
+
+
+# Model Tuning
+cart = DecisionTreeClassifier()
+cart_params = {"max_depth": [1,3,5,8,10],
+"min_samples_split": [2,3,5,10,20,50]}
+cart_cv_model = GridSearchCV(cart, cart_params, cv = 10, n_jobs = -1, verbose =2).fit(X_train, y_train)
+cart_cv_model.best_params_
+#final model
+cart_tuned = DecisionTreeClassifier(max_depth = 10, min_samples_split = 2).fit(X_train, y_train)
+y_pred = cart_tuned.predict(X_test)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",
+xticklabels=['0','1'], yticklabels=['0','1']) plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using Classification and Regression Tree') accuracy_score(y_test, y_pred)
+# RANDOM FORESTS
+#Splitting the dataset into the Training set and Test set
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=41) rf_model = RandomForestClassifier().fit(X_train, y_train)
+rf_model
+y_pred = rf_model.predict(X_test)
+accuracy_score(y_test, y_pred)
+# Model Tuning
+rf = RandomForestClassifier()
+rf_params = {"n_estimators": [100,200,500,1000],
+"max_features": [3,5,7,8],
+"min_samples_split": [2,5,10,20]}
+rf_cv_model = GridSearchCV(rf, rf_params, cv = 10, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+rf_cv_model.best_params_
+
+
+#final model
+rf_tuned = RandomForestClassifier(max_features = 3, min_samples_split = 10, n_estimators = 100).fit(X_train, y_train)
+y_pred = rf_tuned.predict(X_test)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",
+xticklabels=['0','1'], yticklabels=['0','1']) plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using Random Forest Classifier') accuracy_score(y_test, y_pred)
+#feature importances
+rf_tuned
+rf_tuned.feature_importances_
+feature_imp = pd.Series(rf_tuned.feature_importances_,
+index=X_train.columns).sort_values(ascending=False) sns.barplot(x=feature_imp, y=feature_imp.index)
+plt.xlabel('Değişken Önem Skorları') plt.ylabel('Değişkenler') plt.title("Değişken Önem Düzeyleri") plt.show()
+# Gradient Boosting Machines
+# Model & Tahmin
+gbm_model = GradientBoostingClassifier().fit(X_train, y_train) y_pred = gbm_model.predict(X_test)
+accuracy_score(y_test, y_pred)
+# Model Tuning
+gbm = GradientBoostingClassifier()
+gbm_params = {"learning_rate":[0.001, 0.1, 0.01, 0.03],
+"n_estimators": [100, 300, 500, 1000], "max_depth":[2,3,5,8]}
+gbm = GradientBoostingClassifier()
+gbm_cv_model = GridSearchCV(gbm, gbm_params, scoring = 'accuracy', cv = 10, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+gbm_cv_model.fit(X_train, y_train)
+gbm_cv_model.fit(X_train, y_train)
+def display(results):
+print(f'Best parameters are: {results.best_params_}') print("\n")
+mean_score = results.cv_results_['mean_test_score'] params = results.cv_results_['params']
+for mean,params in zip(mean_score,params): print(f'{round(mean,3)} for the {params}')
+display(gbm_cv_model)
+#final model
+gbm_tuned = GradientBoostingClassifier(learning_rate = 0.1, max_depth = 3, n_estimators = 1000).fit(X_train, y_train)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+
+
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",
+xticklabels=['0','1'], yticklabels=['0','1']) plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using Gradient Boosting Classifier') y_pred = gbm_tuned.predict(X_test)
+accuracy_score(y_test, y_pred)
+#feature importances
+feature_imp = pd.Series(gbm_tuned.feature_importances_,
+index=X_train.columns).sort_values(ascending=False)
+sns.barplot(x=feature_imp, y=feature_imp.index) plt.xlabel('Değişken Önem Skorları') plt.ylabel('Değişkenler')
+plt.title("Değişken Önem Düzeyleri")
+plt.show()
+# XGBoost
+# Model & Tahmin
+!pip install xgboost
+from xgboost import XGBClassifier
+y_pred = xgb_model.predict(X_test) accuracy_score(y_test, y_pred)
+# Model Tuning
+xgb = XGBClassifier()
+xgb_params = {"n_estimators": [100, 300, 500, 1000],
+"subsample":[0.6,0.8,1], "max_depth":[3,5,7], "learning_rate":[0.1,0.001,0.01]}
+xgb = XGBClassifier()
+xgb_cv_model = GridSearchCV(xgb, xgb_params, scoring = 'accuracy', cv = 5, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+xgb_cv_model.fit(X_train, y_train)
+xgb_cv_model.fit(X_train, y_train)
+def display(results):
+print(f'Best parameters are: {results.best_params_}') print("\n")
+mean_score = results.cv_results_['mean_test_score'] params = results.cv_results_['params']
+for mean,params in zip(mean_score,params):
+print(f'{round(mean,3)} for the {params}')
+display(xgb_cv_model)
+#final model
+xgb_tuned = XGBClassifier(learning_rate = 0.01, max_depth = 7, n_estimators = 300, subsample = 1).fit(X_train, y_train)
+y_pred = xgb_tuned.predict(X_test)
+accuracy_score(y_test, y_pred)
+#Confusion Matrix
+conf_matrix=confusion_matrix(y_test,y_pred)
+sns.heatmap(conf_matrix, annot=True, fmt='d', linewidths=.1, linecolor= "black", cmap="YlGnBu",
+
+xticklabels=['0','1'], yticklabels=['0','1']) plt.xlabel('Predicted')
+plt.ylabel('Actual')
+print('Confusion Matrix when classified using XGBoost Classifier') accuracy_score(y_test,y_pred)
+#feature importances
+feature_imp = pd.Series(xgb_tuned.feature_importances_,
+index=X_train.columns).sort_values(ascending=False)
+sns.barplot(x=feature_imp, y=feature_imp.index) plt.xlabel('Değişken Önem Skorları') plt.ylabel('Değişkenler')
+plt.title("Değişken Önem Düzeyleri")
+plt.show()
+
+
+# CatBoost
+!pip install catboost
+from catboost import CatBoostClassifier
+catb_model = CatBoostClassifier().fit(X_train, y_train, verbose = False)
+y_pred = catb_model.predict(X_test)
+accuracy_score(y_test, y_pred)
+catb = CatBoostClassifier()
+#iterations : int, [default=500]Max count of trees, depth : int, [default=6] Depth of a tree,l2_leaf_reg : float, [default=3.0]
+# Coefficient at the L2 regularization term of the cost function,model_size_reg : float, [default=None] Model size regularization coefficient
+catb_params = {"iterations":[100, 300, 500, 600, 700],
+"learning_rate":[0.001, 0.1, 0.01, 0.03], "depth":[2, 3, 4, 5, 6, 7, 8],
+"l2_leaf_reg":[1, 2, 3],
+"rsm":[1]}
+catb = CatBoostClassifier()
+catb_cv_model = GridSearchCV(catb, catb_params, scoring = 'accuracy', cv = 5, n_jobs = -1, verbose = 2).fit(X_train, y_train)
+catb_cv_model.fit(X_train, y_train)
+#catb_cv_model.best_params_
+catb_cv_model.fit(X_train, y_train) def display(results):
+print(f'Best parameters are: {results.best_params_}') print("\n")
+mean_score = results.cv_results_['mean_test_score'] params = results.cv_results_['params']
+for mean,params in zip(mean_score,params): print(f'{round(mean,3)} for the {params}')
+display(catb_cv_model)
+catb_tuned = CatBoostClassifier(depth= 4, iterations= 500, l2_leaf_reg= 1, learning_rate= 0.03, rsm = 1).fit(X_train, y_train)
+y_pred = catb_tuned.predict(X_test)
+accuracy_score(y_test, y_pred)
+#feature importances
+feature_imp = pd.Series(catb_tuned.feature_importances_,index=X_train.columns).sort_values(ascending=Fal se)
+
+
+sns.barplot(x=feature_imp, y=feature_imp.index) plt.xlabel('Değişken Önem Skorları') plt.ylabel('Değişkenler')
+plt.title("Değişken Önem Düzeyleri")
+plt.show()
+# Tüm Modellerin Karşılaştırılması modeller = [
+knn_tuned, loj_model, svm_tuned, mlpc_tuned, cart_tuned, rf_tuned, gbm_tuned, catb_tuned, xgb_tuned]
+sonuc = []
+sonuclar = pd.DataFrame(columns= ["Modeller","Accuracy"]) for model in modeller:
+isimler = model.__class__.__name__
+y_pred = model.predict(X_test)
+dogruluk = accuracy_score(y_test, y_pred)
+sonuc = pd.DataFrame([[isimler, dogruluk*100]], columns= ["Modeller","Accuracy"]) sonuclar = sonuclar.append(sonuc)
+sns.barplot(x= 'Accuracy', y = 'Modeller', data=sonuclar, color="b") plt.xlabel('Accuracy %')
+plt.title('Modellerin Doğruluk Oranları');
+sonuclar
